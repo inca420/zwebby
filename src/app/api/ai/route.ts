@@ -1,12 +1,5 @@
 import { OpenAI } from 'openai';
-import { createClient } from '@/lib/supabase/server';
-
-const openai = new OpenAI({
-    baseURL: 'https://openrouter.ai/api/v1',
-    apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-export async function POST(req: Request) {
+import { createClient } from '@/lib/supabase/server'; export async function POST(req: Request) {
     try {
         // 1. Authenticate the request
         const supabase = await createClient();
@@ -24,6 +17,11 @@ export async function POST(req: Request) {
         if (!prompt) {
             return new Response('Missing prompt', { status: 400 });
         }
+
+        const openai = new OpenAI({
+            baseURL: 'https://openrouter.ai/api/v1',
+            apiKey: process.env.OPENROUTER_API_KEY,
+        });
 
         // 3. Call OpenRouter using the OpenAI SDK
         const completion = await openai.chat.completions.create(

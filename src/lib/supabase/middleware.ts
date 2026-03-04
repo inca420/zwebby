@@ -34,9 +34,10 @@ export async function updateSession(request: NextRequest) {
 
     // Define route protection logic
     const isBuilderRoute = request.nextUrl.pathname.startsWith('/builder')
+    const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard')
     const isPaywallRoute = request.nextUrl.pathname.startsWith('/paywall')
 
-    if (!user && (isBuilderRoute || isPaywallRoute)) {
+    if (!user && (isBuilderRoute || isDashboardRoute || isPaywallRoute)) {
         // Unauthenticated users trying to access protected routes go to login
         const url = request.nextUrl.clone()
         url.pathname = '/'
@@ -44,7 +45,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Handle Superadmin logic - bypass paywall, give builder access
-    if (user && isBuilderRoute) {
+    if (user && (isBuilderRoute || isDashboardRoute)) {
         // We import dynamically to avoid Next.js edge runtime issues with some deps
         const { isSuperAdmin } = await import('@/lib/constants/auth')
         if (!isSuperAdmin(user.email)) {
@@ -58,9 +59,9 @@ export async function updateSession(request: NextRequest) {
     if (user && isPaywallRoute) {
         const { isSuperAdmin } = await import('@/lib/constants/auth')
         if (isSuperAdmin(user.email)) {
-            // Superadmins shouldn't see paywall, redirect straight to builder
+            // Superadmins shouldn't see paywall, redirect straight to dashboard
             const url = request.nextUrl.clone()
-            url.pathname = '/builder'
+            url.pathname = '/dashboard'
             return NextResponse.redirect(url)
         }
     }

@@ -60,3 +60,26 @@ create policy "Users can delete their own websites" on public.websites
 -- Optional: Allow public to view ONLY published websites
 create policy "Public can view published websites" on public.websites
   for select using (is_published = true);
+
+-- 3. Create Storage Bucket for User Image Uploads
+insert into storage.buckets (id, name, public)
+values ('user_uploads', 'user_uploads', true)
+on conflict (id) do nothing;
+
+-- Turn on RLS for the storage.objects table
+alter table storage.objects enable row level security;
+
+-- Policy: Allow users to upload their own images
+create policy "Allow authenticated users to upload images"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'user_uploads' AND
+    auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Policy: Allow public read access to uploaded images
+create policy "Allow public to read uploaded images"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'user_uploads');

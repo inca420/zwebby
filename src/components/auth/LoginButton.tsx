@@ -16,7 +16,7 @@ export default function LoginButton() {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'github',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback?next=/builder`,
+                    redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
                 },
             });
             if (error) throw error;
@@ -36,7 +36,7 @@ export default function LoginButton() {
             const { error } = await supabase.auth.signInWithOtp({
                 email,
                 options: {
-                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/builder`,
+                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
                 },
             });
             if (error) throw error;
