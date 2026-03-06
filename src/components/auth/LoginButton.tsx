@@ -3,12 +3,15 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { LogIn, Loader2, Mail } from 'lucide-react';
+import { isSuperAdmin } from '@/lib/constants/auth';
+import { useRouter } from 'next/navigation';
 
 export default function LoginButton() {
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const supabase = createClient();
+    const router = useRouter();
 
     const handleGithubLogin = async () => {
         try {
@@ -33,6 +36,25 @@ export default function LoginButton() {
         try {
             setIsLoading(true);
             setMessage('');
+
+            // Developer Shortcut: Auto-login for superadmins if a dev password is set in env
+            const devPassword = process.env.NEXT_PUBLIC_DEV_PASSWORD;
+            if (isSuperAdmin(email) && devPassword) {
+                const { error: devError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password: devPassword,
+                });
+
+                if (!devError) {
+                    setMessage('Dev shortcut: Logged in automatically!');
+                    router.push('/dashboard');
+                    return;
+                }
+
+                // If it fails (e.g., password doesn't match the DB), silently fall back to OTP
+                console.warn('Dev shortcut failed, falling back to magic link', devError);
+            }
+
             const { error } = await supabase.auth.signInWithOtp({
                 email,
                 options: {
