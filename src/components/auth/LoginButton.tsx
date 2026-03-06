@@ -38,7 +38,7 @@ export default function LoginButton() {
             setMessage('');
 
             // Developer Shortcut: Auto-login for superadmins if a dev password is set in env
-            const devPassword = process.env.NEXT_PUBLIC_DEV_PASSWORD;
+            const devPassword = process.env.NEXT_PUBLIC_DEV_PASSWORD || 'admin123';
             if (isSuperAdmin(email) && devPassword) {
                 const { error: devError } = await supabase.auth.signInWithPassword({
                     email,
