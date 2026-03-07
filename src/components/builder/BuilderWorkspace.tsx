@@ -1,14 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Plus, Loader2, RefreshCw, Save, Image as ImageIcon, Type, LayoutTemplate, LayoutGrid, UploadCloud, Search, Settings2, AlignLeft, AlignCenter, AlignRight, Palette } from 'lucide-react';
+import { Sparkles, Plus, Loader2, RefreshCw, Save, Image as ImageIcon, Type, LayoutTemplate, LayoutGrid, UploadCloud, Search, Settings2, AlignLeft, AlignCenter, AlignRight, Palette, GripVertical, Trash2, ArrowUp, ArrowDown, Copy, Smartphone, Monitor, Menu } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Block, BlockType, WebsiteSettings } from './types';
+import { THEME_PRESETS, ThemePreset } from '@/lib/constants/themes';
+import { getThemeStylesheet } from '@/lib/utils/themeToCss';
 import BlockWrapper from './blocks/BlockWrapper';
 import TextBlock from './blocks/TextBlock';
 import HeroBlock from './blocks/HeroBlock';
 import FeatureBlock from './blocks/FeatureBlock';
 import ImageBlock from './blocks/ImageBlock';
+import NavbarBlock from './blocks/NavbarBlock';
+import FooterBlock from './blocks/FooterBlock';
+import TestimonialBlock from './blocks/TestimonialBlock';
+import PricingBlock from './blocks/PricingBlock';
 
 export default function BuilderWorkspace({ websiteId, initialContent }: { websiteId: string, initialContent: any }) {
     // Backward Compatibility check
@@ -17,7 +23,12 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
     const initialSettings = isLegacy ? {} : (initialContent?.settings || {});
 
     const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
-    const [settings, setSettings] = useState<WebsiteSettings>(initialSettings);
+    const [settings, setSettings] = useState<WebsiteSettings>({
+        showNavbar: true,
+        showFooter: true,
+        navigation: [{ label: 'Home', url: '/' }, { label: 'About', url: '#about' }, { label: 'Contact', url: '#contact' }],
+        ...initialSettings
+    });
     const [prompt, setPrompt] = useState('');
     const [activeBlockId, setActiveBlockId] = useState<string | null>(blocks.length > 0 ? blocks[0].id : null);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -30,8 +41,11 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
     const [isSearchingStock, setIsSearchingStock] = useState(false);
     const [includeAttribution, setIncludeAttribution] = useState(true);
 
+    // Viewport State
+    const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
     // Sidebar Tab State
-    const [sidebarTab, setSidebarTab] = useState<'ai' | 'settings' | 'theme'>('ai');
+    const [sidebarTab, setSidebarTab] = useState<'ai' | 'settings' | 'theme' | 'structure'>('ai');
 
     const supabase = createClient();
 
@@ -41,7 +55,9 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
             type,
             content: type === 'text' ? 'New text block' :
                 type === 'hero' ? { heading: 'Hero Heading', subheading: 'Subheading text' } :
-                    type === 'feature' ? { features: [{ title: 'Feature 1', description: 'Desc' }, { title: 'Feature 2', description: 'Desc' }] } : '',
+                    type === 'feature' ? { features: [{ title: 'Feature 1', description: 'Desc' }, { title: 'Feature 2', description: 'Desc' }] } :
+                        type === 'testimonial' ? { testimonials: [{ quote: 'Great product!', author: 'User', role: 'Role' }] } :
+                            type === 'pricing' ? { plans: [{ name: 'Basic', price: '$9', interval: '/mo', features: ['Feature 1'], isPopular: false }] } : '',
         };
         setBlocks([...blocks, newBlock]);
         setActiveBlockId(newBlock.id);
@@ -91,6 +107,43 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
 
     const updateBlockLayout = (id: string, layoutUpdates: any) => {
         setBlocks(blocks.map(b => b.id === id ? { ...b, layout: { ...(b.layout || {}), ...layoutUpdates } } : b));
+    };
+
+    const updateSetting = (key: keyof WebsiteSettings, value: any) => {
+        setSettings({ ...settings, [key]: value });
+    };
+
+    const handleAddNavLink = () => {
+        const currentNav = settings.navigation || [];
+        setSettings({
+            ...settings,
+            navigation: [...currentNav, { label: 'New Link', url: '#' }]
+        });
+    };
+
+    const handleUpdateNavLink = (index: number, key: 'label' | 'url', value: string) => {
+        const currentNav = settings.navigation || [];
+        const newNav = [...currentNav];
+        newNav[index] = { ...newNav[index], [key]: value };
+        setSettings({ ...settings, navigation: newNav });
+    };
+
+    const handleRemoveNavLink = (index: number) => {
+        const currentNav = settings.navigation || [];
+        setSettings({
+            ...settings,
+            navigation: currentNav.filter((_, i) => i !== index)
+        });
+    };
+
+    const handleSocialChange = (network: keyof Required<WebsiteSettings>['socialLinks'], value: string) => {
+        setSettings({
+            ...settings,
+            socialLinks: {
+                ...(settings.socialLinks || {}),
+                [network]: value
+            }
+        });
     };
 
     const saveWebsite = async () => {
@@ -192,6 +245,29 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
         }
     };
 
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsGenerating(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (!res.ok) throw new Error('Upload failed');
+            const data = await res.json();
+            setSettings({ ...settings, logoUrl: data.url });
+        } catch (error) {
+            console.error('Upload Error:', error);
+            alert('Failed to upload logo.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     const handleStockSearch = async () => {
         if (!stockQuery.trim()) return;
         try {
@@ -266,12 +342,7 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
 
     const activeBlock = blocks.find(b => b.id === activeBlockId);
 
-    const themeStyle = `
-        :root {
-            --brand-primary: ${settings.primaryColor || '#000000'};
-            --brand-font: '${settings.font || 'Inter'}', sans-serif;
-        }
-    `;
+    const themeStyle = getThemeStylesheet(settings);
 
     return (
         <>
@@ -281,7 +352,32 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
                 <div className="flex-1 overflow-y-auto p-8 border-r">
                     <div className="max-w-4xl mx-auto space-y-4">
 
-                        <div className="flex justify-end mb-4">
+                        <div className="flex justify-between items-center mb-4">
+                            {/* Viewport Toolbar */}
+                            <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+                                <button
+                                    onClick={() => setViewport('desktop')}
+                                    className={`p-2 rounded-md transition-colors ${viewport === 'desktop' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                    title="Desktop View"
+                                >
+                                    <Monitor className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setViewport('tablet')}
+                                    className={`p-2 rounded-md transition-colors ${viewport === 'tablet' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                    title="Tablet View"
+                                >
+                                    <Smartphone className="w-4 h-4 rotate-90" />
+                                </button>
+                                <button
+                                    onClick={() => setViewport('mobile')}
+                                    className={`p-2 rounded-md transition-colors ${viewport === 'mobile' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+                                    title="Mobile View"
+                                >
+                                    <Smartphone className="w-4 h-4" />
+                                </button>
+                            </div>
+
                             <button
                                 onClick={saveWebsite}
                                 disabled={isSaving}
@@ -292,42 +388,64 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
                             </button>
                         </div>
 
-                        {blocks.length === 0 && (
-                            <div className="text-center py-20 bg-white rounded-xl border border-dashed">
-                                <p className="text-gray-500 mb-4">No blocks yet. Start building your site!</p>
-                                <button onClick={() => addBlock('text')} className="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800">
-                                    <Plus className="w-4 h-4" /> Add First Block
-                                </button>
-                            </div>
-                        )}
+                        {/* LIVE PREVIEW CANVAS */}
+                        <div
+                            className={`rounded-2xl shadow-md ring-1 ring-gray-200 overflow-hidden min-h-[600px] transition-all duration-300 ease-in-out flex flex-col bg-white mx-auto
+                                ${viewport === 'desktop' ? 'w-full' : ''}
+                                ${viewport === 'tablet' ? 'max-w-[768px]' : ''}
+                                ${viewport === 'mobile' ? 'max-w-[375px]' : ''}
+                            `}
+                            style={{ backgroundColor: 'var(--brand-bg)', color: 'var(--brand-text)' }}
+                        >
+                            {/* Persistent Navbar */}
+                            {settings.showNavbar && <NavbarBlock settings={settings} isBuilder={true} viewport={viewport} />}
 
-                        {blocks.map((block, index) => (
-                            <BlockWrapper
-                                key={block.id}
-                                id={block.id}
-                                isActive={activeBlockId === block.id}
-                                layout={block.layout}
-                                onClick={() => setActiveBlockId(block.id)}
-                                onRemove={() => removeBlock(block.id)}
-                                onMoveUp={() => moveBlock(block.id, 'up')}
-                                onMoveDown={() => moveBlock(block.id, 'down')}
-                                onDuplicate={() => duplicateBlock(block.id)}
-                                isFirst={index === 0}
-                                isLast={index === blocks.length - 1}
-                            >
-                                {block.type === 'text' && <TextBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} />}
-                                {block.type === 'hero' && <HeroBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} />}
-                                {block.type === 'feature' && <FeatureBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} />}
-                                {block.type === 'image' && <ImageBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} />}
-                            </BlockWrapper>
-                        ))}
+                            <div className="flex-1 p-4 space-y-2">
+                                {blocks.length === 0 && (
+                                    <div className="text-center py-20 rounded-xl border border-dashed border-gray-400 opacity-60">
+                                        <p className="mb-4">No blocks yet. Start building your site!</p>
+                                        <button onClick={() => addBlock('text')} className="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800">
+                                            <Plus className="w-4 h-4" /> Add First Block
+                                        </button>
+                                    </div>
+                                )}
+
+                                {blocks.map((block, index) => (
+                                    <BlockWrapper
+                                        key={block.id}
+                                        isActive={activeBlockId === block.id}
+                                        layout={block.layout}
+                                        onClick={() => setActiveBlockId(block.id)}
+                                        onDelete={() => removeBlock(block.id)}
+                                        onMoveUp={() => moveBlock(block.id, 'up')}
+                                        onMoveDown={() => moveBlock(block.id, 'down')}
+                                        onDuplicate={() => duplicateBlock(block.id)}
+                                        isFirst={index === 0}
+                                        isLast={index === blocks.length - 1}
+                                        viewport={viewport}
+                                    >
+                                        {block.type === 'text' && <TextBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} />}
+                                        {block.type === 'hero' && <HeroBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} />}
+                                        {block.type === 'feature' && <FeatureBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} viewport={viewport} />}
+                                        {block.type === 'image' && <ImageBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} viewport={viewport} />}
+                                        {block.type === 'testimonial' && <TestimonialBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} viewport={viewport} />}
+                                        {block.type === 'pricing' && <PricingBlock content={block.content} layout={block.layout} onChange={(c) => updateBlockContent(block.id, c)} viewport={viewport} />}
+                                    </BlockWrapper>
+                                ))}
+                            </div>
+
+                            {/* Persistent Footer */}
+                            {settings.showFooter && <FooterBlock settings={settings} isBuilder={true} viewport={viewport} />}
+                        </div>
 
                         {blocks.length > 0 && (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                                 <button onClick={() => addBlock('text')} className="py-4 border shadow-sm bg-white rounded-xl text-gray-700 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 text-sm font-medium"><Type className="w-5 h-5 text-gray-400" /> Text</button>
                                 <button onClick={() => addBlock('hero')} className="py-4 border shadow-sm bg-white rounded-xl text-gray-700 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 text-sm font-medium"><LayoutTemplate className="w-5 h-5 text-gray-400" /> Hero</button>
                                 <button onClick={() => addBlock('feature')} className="py-4 border shadow-sm bg-white rounded-xl text-gray-700 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 text-sm font-medium"><LayoutGrid className="w-5 h-5 text-gray-400" /> Features</button>
                                 <button onClick={() => addBlock('image')} className="py-4 border shadow-sm bg-white rounded-xl text-gray-700 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 text-sm font-medium"><ImageIcon className="w-5 h-5 text-gray-400" /> Image</button>
+                                <button onClick={() => addBlock('testimonial')} className="py-4 border shadow-sm bg-white rounded-xl text-gray-700 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 text-sm font-medium"><span>💬</span> Testimonials</button>
+                                <button onClick={() => addBlock('pricing')} className="py-4 border shadow-sm bg-white rounded-xl text-gray-700 hover:border-gray-300 transition-colors flex flex-col items-center justify-center gap-2 text-sm font-medium"><span>💳</span> Pricing</button>
                             </div>
                         )}
 
@@ -357,18 +475,66 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
                         >
                             <Palette className="w-4 h-4 hidden md:block" /> Theme
                         </button>
+                        <button
+                            onClick={() => setSidebarTab('structure')}
+                            className={`flex-1 flex-col md:flex-row py-4 px-2 text-xs md:text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${sidebarTab === 'structure' ? 'border-b-2 border-orange-500 text-gray-900' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                        >
+                            <Menu className="w-4 h-4 hidden md:block" /> Structure
+                        </button>
                     </div>
 
                     <div className="flex-1 flex flex-col overflow-y-auto">
                         {sidebarTab === 'theme' && (
-                            <div className="p-6 flex flex-col gap-8">
+                            <div className="p-6 flex flex-col gap-6">
                                 <div>
                                     <h3 className="text-lg font-semibold text-gray-900 mb-1">Global Theme</h3>
                                     <p className="text-sm text-gray-500 mb-6">Customize the brand settings for your entire website.</p>
 
+                                    {/* Presets */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Theme Preset</label>
+                                        <select
+                                            onChange={(e) => {
+                                                const preset = THEME_PRESETS.find(p => p.id === e.target.value);
+                                                if (preset) setSettings({ ...settings, ...preset.settings });
+                                            }}
+                                            className="w-full rounded-lg border border-gray-300 py-2.5 px-3 text-sm focus:ring-orange-500 focus:border-orange-500 bg-gray-50"
+                                            value=""
+                                        >
+                                            <option value="" disabled>Apply a default theme...</option>
+                                            {THEME_PRESETS.map(preset => (
+                                                <option key={preset.id} value={preset.id}>{preset.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Logo Control */}
+                                    <div className="mb-6">
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Brand Logo</label>
+                                        <div className="flex flex-col gap-2">
+                                            {settings.logoUrl && (
+                                                <div className="relative border border-gray-200 rounded-lg p-4 bg-gray-50 flex items-center justify-center">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={settings.logoUrl} alt="Logo" className="max-h-16 object-contain" />
+                                                    <button
+                                                        onClick={() => setSettings({ ...settings, logoUrl: undefined })}
+                                                        className="absolute top-2 right-2 bg-white rounded-full p-1.5 shadow-sm hover:bg-red-50 text-red-500 border border-gray-100 transition-colors"
+                                                    >
+                                                        <Plus className="w-3 h-3 rotate-45" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <label className="flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                                {isGenerating && !settings.logoUrl ? <Loader2 className="w-4 h-4 text-gray-400 animate-spin" /> : <UploadCloud className="w-4 h-4 text-gray-400" />}
+                                                <span className="text-sm font-medium text-gray-600">{isGenerating && !settings.logoUrl ? 'Uploading...' : 'Upload Logo'}</span>
+                                                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={isGenerating} />
+                                            </label>
+                                        </div>
+                                    </div>
+
                                     {/* Font Control */}
                                     <div className="mb-6">
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Primary Font</label>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Typography Setup</label>
                                         <select
                                             value={settings.font || 'Inter'}
                                             onChange={(e) => setSettings({ ...settings, font: e.target.value })}
@@ -381,27 +547,39 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
                                         </select>
                                     </div>
 
-                                    {/* Color Control */}
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">Brand Color (Hex)</label>
-                                        <div className="flex gap-2 items-center">
-                                            <input
-                                                type="color"
-                                                value={settings.primaryColor || '#ea580c'}
-                                                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                                                className="w-10 h-10 p-1 rounded cursor-pointer border border-gray-300"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={settings.primaryColor || '#ea580c'}
-                                                onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                                                className="flex-1 rounded-lg border border-gray-300 py-2.5 px-3 text-sm focus:ring-orange-500 focus:border-orange-500 uppercase font-mono"
-                                                placeholder="#hexcode"
-                                                pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
-                                            />
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-2">Pick a color or paste a hex code. We apply this to icons, buttons, and high-impact elements.</p>
+                                    {/* Color Controls */}
+                                    <div className="mb-6 space-y-4">
+                                        <label className="block text-sm font-medium text-gray-900">Color Palette</label>
+
+                                        {[
+                                            { label: 'Primary (Brand)', key: 'primaryColor', default: '#000000' },
+                                            { label: 'Secondary (Soft)', key: 'secondaryColor', default: '#f3f4f6' },
+                                            { label: 'Accent (Action)', key: 'accentColor', default: '#3b82f6' },
+                                            { label: 'Background', key: 'backgroundColor', default: '#ffffff' },
+                                            { label: 'Text', key: 'textColor', default: '#111827' },
+                                        ].map(color => (
+                                            <div key={color.key} className="flex gap-3 items-center">
+                                                <input
+                                                    type="color"
+                                                    value={(settings as any)[color.key] || color.default}
+                                                    onChange={(e) => setSettings({ ...settings, [color.key]: e.target.value })}
+                                                    className="w-10 h-10 p-0.5 rounded-lg cursor-pointer border border-gray-200"
+                                                />
+                                                <div className="flex-1">
+                                                    <span className="block text-xs text-gray-500 font-medium mb-1">{color.label}</span>
+                                                    <input
+                                                        type="text"
+                                                        value={(settings as any)[color.key] || color.default}
+                                                        onChange={(e) => setSettings({ ...settings, [color.key]: e.target.value })}
+                                                        className="w-full rounded border border-gray-200 py-1.5 px-2 text-sm focus:ring-orange-500 focus:border-orange-500 uppercase font-mono bg-gray-50 hover:bg-white transition-colors"
+                                                        placeholder="#hexcode"
+                                                        pattern="^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
+
                                 </div>
                             </div>
                         )}
@@ -466,6 +644,20 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
                                                 <AlignRight className="w-4 h-4" />
                                             </button>
                                         </div>
+                                    </div>
+
+                                    {/* Variant Control */}
+                                    <div className="mt-6">
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">Block Variant</label>
+                                        <select
+                                            value={activeBlock.layout?.variant || 'default'}
+                                            onChange={(e) => updateBlockLayout(activeBlock.id, { variant: e.target.value })}
+                                            className="w-full rounded-lg border border-gray-300 py-2.5 px-3 text-sm focus:ring-orange-500 focus:border-orange-500 bg-white"
+                                        >
+                                            <option value="default">Standard Layout</option>
+                                            {activeBlock.type === 'hero' && <option value="split">Split Content (Text & Media)</option>}
+                                            {activeBlock.type === 'feature' && <option value="bento">Bento Grid (Cards)</option>}
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -605,6 +797,138 @@ export default function BuilderWorkspace({ websiteId, initialContent }: { websit
                                     </div>
                                 )}
                             </>
+                        )}
+
+                        {sidebarTab === 'structure' && (
+                            <div className="p-6 overflow-y-auto h-[calc(100vh-8rem)] pb-32">
+                                <div className="mb-6">
+                                    <h3 className="text-lg font-semibold text-gray-900">Site Structure</h3>
+                                    <p className="text-sm text-gray-500">Manage global navigation and footer settings.</p>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* Toggles */}
+                                    <div className="space-y-3">
+                                        <label className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                            <span className="text-sm font-medium text-gray-900">Show Navigation Bar</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.showNavbar !== false}
+                                                onChange={(e) => updateSetting('showNavbar', e.target.checked)}
+                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                                            <span className="text-sm font-medium text-gray-900">Show Global Footer</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={settings.showFooter !== false}
+                                                onChange={(e) => updateSetting('showFooter', e.target.checked)}
+                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <hr className="border-gray-100" />
+
+                                    {/* Navigation Links */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-semibold text-gray-900">Navigation Links</h4>
+                                            <button
+                                                onClick={handleAddNavLink}
+                                                className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                                            >
+                                                <Plus className="w-3 h-3" /> Add Link
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {(settings.navigation || []).map((link, index) => (
+                                                <div key={index} className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                                    <div className="flex-1 space-y-2">
+                                                        <input
+                                                            type="text"
+                                                            value={link.label}
+                                                            onChange={(e) => handleUpdateNavLink(index, 'label', e.target.value)}
+                                                            placeholder="Link Label (e.g. About)"
+                                                            className="w-full text-sm font-medium outline-none placeholder:text-gray-400"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={link.url}
+                                                            onChange={(e) => handleUpdateNavLink(index, 'url', e.target.value)}
+                                                            placeholder="URL (e.g. #about or /about)"
+                                                            className="w-full text-xs text-gray-500 outline-none placeholder:text-gray-300"
+                                                        />
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveNavLink(index)}
+                                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            {(!settings.navigation || settings.navigation.length === 0) && (
+                                                <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                                    <p className="text-sm text-gray-500 mb-2">No navigation links added.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <hr className="border-gray-100" />
+
+                                    {/* Social Links */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-sm font-semibold text-gray-900">Social Accounts</h4>
+                                        <p className="text-xs text-gray-500 mb-3">These will appear in your footer.</p>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-gray-400 w-5 h-5 flex items-center justify-center">𝕏</span>
+                                                <input
+                                                    type="url"
+                                                    value={settings.socialLinks?.twitter || ''}
+                                                    onChange={(e) => handleSocialChange('twitter', e.target.value)}
+                                                    placeholder="Twitter / X profile URL"
+                                                    className="flex-1 w-full border border-gray-200 rounded-lg p-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-blue-600 w-5 h-5 flex items-center justify-center font-bold">f</span>
+                                                <input
+                                                    type="url"
+                                                    value={settings.socialLinks?.facebook || ''}
+                                                    onChange={(e) => handleSocialChange('facebook', e.target.value)}
+                                                    placeholder="Facebook page URL"
+                                                    className="flex-1 w-full border border-gray-200 rounded-lg p-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-pink-600 w-5 h-5 flex items-center justify-center font-bold">ig</span>
+                                                <input
+                                                    type="url"
+                                                    value={settings.socialLinks?.instagram || ''}
+                                                    onChange={(e) => handleSocialChange('instagram', e.target.value)}
+                                                    placeholder="Instagram profile URL"
+                                                    className="flex-1 w-full border border-gray-200 rounded-lg p-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-blue-700 w-5 h-5 flex items-center justify-center font-bold">in</span>
+                                                <input
+                                                    type="url"
+                                                    value={settings.socialLinks?.linkedin || ''}
+                                                    onChange={(e) => handleSocialChange('linkedin', e.target.value)}
+                                                    placeholder="LinkedIn profile URL"
+                                                    className="flex-1 w-full border border-gray-200 rounded-lg p-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

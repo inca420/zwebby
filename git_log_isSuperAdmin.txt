@@ -1,0 +1,147 @@
+﻿commit d96a19d8be1bbe318e090ce9e9119c06e84a698d
+Author: Scot R. <sdrproductionsinfo@gmail.com>
+Date:   Fri Feb 27 07:50:58 2026 -0600
+
+    Zwebby MVP Prototype complete: Authentication, UI, and OpenRouter backend
+
+diff --git a/src/app/builder/page.tsx b/src/app/builder/page.tsx
+new file mode 100644
+index 0000000..c999e06
+--- /dev/null
++++ b/src/app/builder/page.tsx
+@@ -0,0 +1,39 @@
++import { createClient } from '@/lib/supabase/server';
++import { redirect } from 'next/navigation';
++import { LogOut } from 'lucide-react';
++import { isSuperAdmin } from '@/lib/constants/auth';
++import BuilderWorkspace from '@/components/builder/BuilderWorkspace';
++
++export default async function BuilderPage() {
++    const supabase = await createClient();
++    const { data: { user } } = await supabase.auth.getUser();
++
++    if (!user) {
++        redirect('/');
++    }
++
++    // Double check authorization on the server component side
++    if (!isSuperAdmin(user.email)) {
++        redirect('/paywall');
++    }
++
++    return (
++        <div className="min-h-screen bg-gray-50 flex flex-col">
++            <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
++                <h1 className="text-xl font-bold text-gray-900">Zwebby Builder Prototype</h1>
++                <div className="flex items-center gap-4">
++                    <span className="text-sm text-gray-500">{user.email}</span>
++                    <form action="/auth/signout" method="post">
++                        <button className="p-2 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors">
++                            <LogOut className="w-5 h-5" />
++                        </button>
++                    </form>
++                </div>
++            </header>
++
++            <main className="flex-1">
++                <BuilderWorkspace />
++            </main>
++        </div>
++    );
++}
+diff --git a/src/lib/constants/auth.ts b/src/lib/constants/auth.ts
+new file mode 100644
+index 0000000..37057cb
+--- /dev/null
++++ b/src/lib/constants/auth.ts
+@@ -0,0 +1,15 @@
++export const SUPERADMIN_EMAILS = [
++    'jack@incatrailterpenes.com',
++    'jack@smokeshowlabs.com',
++    'dan@incatrailterpenes.com',
++    'dan@smokeshowlabs.com',
++    'scot@smokeshowlabs.com',
++    'info@sdrproductions.com',
++    'scot.robnett@sdrproductions.com',
++    'sdrproductionsinfo@gmail.com',
++];
++
++export function isSuperAdmin(email?: string): boolean {
++    if (!email) return false;
++    return SUPERADMIN_EMAILS.includes(email.toLowerCase());
++}
+diff --git a/src/lib/supabase/middleware.ts b/src/lib/supabase/middleware.ts
+new file mode 100644
+index 0000000..7743fd8
+--- /dev/null
++++ b/src/lib/supabase/middleware.ts
+@@ -0,0 +1,69 @@
++import { createServerClient } from '@supabase/ssr'
++import { NextResponse, type NextRequest } from 'next/server'
++
++export async function updateSession(request: NextRequest) {
++    let supabaseResponse = NextResponse.next({
++        request,
++    })
++
++    const supabase = createServerClient(
++        process.env.NEXT_PUBLIC_SUPABASE_URL!,
++        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
++        {
++            cookies: {
++                getAll() {
++                    return request.cookies.getAll()
++                },
++                setAll(cookiesToSet) {
++                    cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
++                    supabaseResponse = NextResponse.next({
++                        request,
++                    })
++                    cookiesToSet.forEach(({ name, value, options }) =>
++                        supabaseResponse.cookies.set(name, value, options)
++                    )
++                },
++            },
++        }
++    )
++
++    // This will refresh session if expired
++    const {
++        data: { user },
++    } = await supabase.auth.getUser()
++
++    // Define route protection logic
++    const isBuilderRoute = request.nextUrl.pathname.startsWith('/builder')
++    const isPaywallRoute = request.nextUrl.pathname.startsWith('/paywall')
++
++    if (!user && (isBuilderRoute || isPaywallRoute)) {
++        // Unauthenticated users trying to access protected routes go to login
++        const url = request.nextUrl.clone()
++        url.pathname = '/'
++        return NextResponse.redirect(url)
++    }
++
++    // Handle Superadmin logic - bypass paywall, give builder access
++    if (user && isBuilderRoute) {
++        // We import dynamically to avoid Next.js edge runtime issues with some deps
++        const { isSuperAdmin } = await import('@/lib/constants/auth')
++        if (!isSuperAdmin(user.email)) {
++            // Non-admins shouldn't access builder directly yet in MVP, redirect to Paywall placeholder
++            const url = request.nextUrl.clone()
++            url.pathname = '/paywall'
++            return NextResponse.redirect(url)
++        }
++    }
++
++    if (user && isPaywallRoute) {
++        const { isSuperAdmin } = await import('@/lib/constants/auth')
++        if (isSuperAdmin(user.email)) {
++            // Superadmins shouldn't see paywall, redirect straight to builder
++            const url = request.nextUrl.clone()
++            url.pathname = '/builder'
++            return NextResponse.redirect(url)
++        }
++    }
++
++    return supabaseResponse
++}
