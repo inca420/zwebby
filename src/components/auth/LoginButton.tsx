@@ -34,6 +34,14 @@ export default function LoginButton() {
         if (!email) return;
 
         try {
+            console.log('--- DEBUG ENV ---');
+            console.log('URL EXISTS:', !!process.env.NEXT_PUBLIC_SUPABASE_URL);
+            console.log('URL VALUE LENGTH:', process.env.NEXT_PUBLIC_SUPABASE_URL?.length);
+            console.log('ANON EXISTS:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+            console.log('ANON VALUE LENGTH:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length);
+            console.log('DEV PWD EXISTS:', !!process.env.NEXT_PUBLIC_DEV_PASSWORD);
+            console.log('-----------------');
+
             if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
                 setMessage('Configuration Error: Supabase Environment Variables are missing.');
                 return;
