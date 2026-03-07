@@ -34,6 +34,11 @@ export default function LoginButton() {
         if (!email) return;
 
         try {
+            if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+                setMessage('Configuration Error: Supabase Environment Variables are missing.');
+                return;
+            }
+
             setIsLoading(true);
             setMessage('');
 
