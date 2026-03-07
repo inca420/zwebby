@@ -47,7 +47,7 @@ export default function LoginButton() {
 
                 if (!devError) {
                     setMessage('Dev shortcut: Logged in automatically!');
-                    router.push('/dashboard');
+                    window.location.href = '/dashboard';
                     return;
                 }
 
