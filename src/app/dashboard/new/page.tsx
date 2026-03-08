@@ -13,7 +13,11 @@ export default async function NewProjectPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
             <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-                <h1 className="text-xl font-bold text-gray-900">Zwebby Onboarding</h1>
+                <div className="flex items-center gap-2">
+                    <a href="/dashboard" className="text-gray-500 hover:text-gray-900 transition-colors font-medium">Dashboard</a>
+                    <span className="text-gray-400">/</span>
+                    <h1 className="text-xl font-bold text-gray-900">New Project</h1>
+                </div>
                 <span className="text-sm text-gray-500">{user.email}</span>
             </header>
 
@@ -28,6 +32,6 @@ export default async function NewProjectPage() {
                     <WizardForm />
                 </div>
             </main>
-        </div>
+        </div >
     );
 }

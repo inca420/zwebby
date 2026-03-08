@@ -43,7 +43,7 @@ export default function WizardForm() {
             }
 
             const { websiteId } = await response.json();
-            router.push(`/site/${websiteId}/builder`);
+            router.push(`/builder/${websiteId}`);
         } catch (error) {
             console.error('Error generating site:', error);
             alert('There was an error generating your site. Please try again.');
