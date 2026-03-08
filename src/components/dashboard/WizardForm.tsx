@@ -97,7 +97,7 @@ export default function WizardForm() {
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900"
                                     placeholder="e.g. Acme Studio"
                                 />
                             </div>
@@ -109,7 +109,7 @@ export default function WizardForm() {
                                         type="text"
                                         value={formData.path}
                                         onChange={(e) => setFormData({ ...formData, path: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
-                                        className="w-full px-4 py-3 outline-none bg-transparent"
+                                        className="w-full px-4 py-3 outline-none bg-transparent text-gray-900"
                                         placeholder="acme-studio"
                                     />
                                 </div>
@@ -131,7 +131,7 @@ export default function WizardForm() {
                                     type="text"
                                     value={formData.industry}
                                     onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900"
                                     placeholder="e.g. Photography, SaaS Startup, Local Bakery"
                                 />
                             </div>
@@ -140,7 +140,7 @@ export default function WizardForm() {
                                 <textarea
                                     value={formData.purpose}
                                     onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none h-32"
+                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all resize-none h-32 text-gray-900"
                                     placeholder="e.g. I want to showcase my portfolio and attract new clients to book photoshoots."
                                 />
                             </div>
@@ -178,7 +178,7 @@ export default function WizardForm() {
                                 <select
                                     value={formData.tone}
                                     onChange={(e) => setFormData({ ...formData, tone: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+                                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-gray-900"
                                 >
                                     <option>Professional & Trustworthy</option>
                                     <option>Friendly & Approachable</option>

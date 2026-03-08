@@ -165,7 +165,6 @@ Please generate the structured JSON for the landing page.
             .insert({
                 user_id: user.id,
                 name: name,
-                slug: path,
                 content: initialContentBlob
             })
             .select()
