@@ -64,8 +64,11 @@ export default function LoginButton() {
                     return;
                 }
 
-                // If it fails (e.g., password doesn't match the DB), silently fall back to OTP
-                console.warn('Dev shortcut failed, falling back to magic link', devError);
+                // If it fails, we explicitly STOP here for superadmins as requested.
+                console.error('Dev shortcut failed for admin', devError);
+                setMessage('Admin Dev shortcut failed. Ensure account exists and password is set to admin123.');
+                setIsLoading(false);
+                return;
             }
 
             const { error } = await supabase.auth.signInWithOtp({
